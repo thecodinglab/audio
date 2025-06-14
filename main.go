@@ -1,15 +1,40 @@
 package main
 
 import (
-	"time"
+	"context"
+	"os"
+	"os/signal"
+	"sync"
 
 	"github.com/thecodinglab/audio/pipewire"
 )
 
 func main() {
-	sink := pipewire.New()
-	defer sink.Close()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
 
-	sink.Ready()
-	time.Sleep(4 * time.Second)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+
+		sink := pipewire.New("ananas")
+		defer sink.Close()
+
+		sink.Ready()
+		<-ctx.Done()
+	}()
+
+	go func() {
+		defer wg.Done()
+
+		sink := pipewire.New("banane")
+		defer sink.Close()
+
+		sink.Ready()
+		<-ctx.Done()
+	}()
+
+	wg.Wait()
 }

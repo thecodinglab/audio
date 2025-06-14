@@ -44,7 +44,8 @@ static const struct pw_stream_events stream_events = {
     .process = on_process,
 };
 
-struct data *audio_setup(int sampleRate, int channels, void *userdata) {
+struct data *audio_setup(const char *name, int sampleRate, int channels,
+                         void *userdata) {
   struct data *data = malloc(sizeof(struct data));
   data->sample_rate = sampleRate;
   data->channels = channels;
@@ -52,7 +53,6 @@ struct data *audio_setup(int sampleRate, int channels, void *userdata) {
 
   pw_init(NULL, NULL);
   data->loop = pw_main_loop_new(NULL);
-  printf("AUDIO SETUP %p\n", data->loop);
 
   uint8_t buffer[1024];
   struct spa_pod_builder builder = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
@@ -65,7 +65,7 @@ struct data *audio_setup(int sampleRate, int channels, void *userdata) {
                                .channels = channels, .rate = sampleRate));
 
   data->stream = pw_stream_new_simple(
-      pw_main_loop_get_loop(data->loop), "audio-src",
+      pw_main_loop_get_loop(data->loop), name,
       pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio",        //
                         PW_KEY_MEDIA_CATEGORY, "Playback", //
                         PW_KEY_MEDIA_ROLE, "Music",        //
@@ -80,10 +80,7 @@ struct data *audio_setup(int sampleRate, int channels, void *userdata) {
   return data;
 }
 
-void audio_run(struct data *data) {
-  printf("AUDIO RUN %p\n", data->loop);
-  pw_main_loop_run(data->loop);
-}
+void audio_run(struct data *data) { pw_main_loop_run(data->loop); }
 
 void audio_quit(struct data *data) { pw_main_loop_quit(data->loop); }
 
