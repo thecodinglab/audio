@@ -30,7 +30,7 @@ static void on_process(void *userdata) {
   if (b->requested)
     n_frames = SPA_MIN(b->requested, n_frames);
 
-  audio_sample(dst, n_frames * stride, data->userdata);
+  audio_sample(dst, n_frames * data->channels, data->userdata);
 
   buf->datas[0].chunk->offset = 0;
   buf->datas[0].chunk->stride = stride;

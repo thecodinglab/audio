@@ -14,22 +14,33 @@ func main() {
 	defer cancel()
 
 	wg := sync.WaitGroup{}
-	wg.Add(2)
 
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
-		sink := pipewire.New("ananas")
+		cfg := pipewire.Config{
+			SampleRate: 44100,
+			Channels:   2,
+		}
+
+		sink := pipewire.New("ananas", cfg)
 		defer sink.Close()
 
 		sink.Ready()
 		<-ctx.Done()
 	}()
 
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
-		sink := pipewire.New("banane")
+		cfg := pipewire.Config{
+			SampleRate: 44100 / 2,
+			Channels:   1,
+		}
+
+		sink := pipewire.New("banane", cfg)
 		defer sink.Close()
 
 		sink.Ready()
