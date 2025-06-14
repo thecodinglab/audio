@@ -27,17 +27,26 @@ func main() {
 			Channels:   2,
 		}
 
+		delta, minFreq, maxFreq := 1, 200, 400
+
 		sampler := pcm.NewWaveSampler()
-		sampler.Frequency = 220
+		sampler.Frequency = minFreq
 		sampler.SampleRate = cfg.SampleRate
 		sampler.Channels = cfg.Channels
 		sampler.Volume = 0.03
 
 		go func() {
-			for range time.Tick(20 * time.Millisecond) {
-				sampler.Frequency++
-				if sampler.Frequency > 440 {
-					sampler.Frequency = 100
+			for range time.Tick(10 * time.Millisecond) {
+				sampler.Frequency += delta
+
+				if sampler.Frequency <= minFreq {
+					sampler.Frequency = minFreq
+					delta = -delta
+				}
+
+				if sampler.Frequency >= maxFreq {
+					sampler.Frequency = maxFreq
+					delta = -delta
 				}
 			}
 		}()
@@ -62,7 +71,9 @@ func main() {
 		sampler.Channels = cfg.Channels
 		sampler.Volume = 0.03
 
-		sink := pipewire.New(sampler, cfg)
+		unblocked := pcm.NewNonBlockingIOSampler(sampler)
+
+		sink := pipewire.New(unblocked, cfg)
 		defer sink.Close()
 		<-ctx.Done()
 	}()

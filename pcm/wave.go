@@ -18,11 +18,14 @@ func NewWaveSampler() *WaveSampler {
 	return &WaveSampler{220, 44100, 1, 2, 0}
 }
 
-const twoPI = math.Pi + math.Pi
+const (
+	twoPI     = math.Pi + math.Pi
+	sizeInt16 = 2
+)
 
 func (s *WaveSampler) Read(buf []byte) (int, error) {
 	n := 0
-	frames := len(buf) / (2 /* int16 */ * s.Channels)
+	frames := len(buf) / (sizeInt16 * s.Channels)
 
 	for i := range frames {
 		s.acc += twoPI * float64(s.Frequency) / float64(s.SampleRate)
@@ -30,7 +33,7 @@ func (s *WaveSampler) Read(buf []byte) (int, error) {
 			s.acc -= twoPI
 		}
 
-		val := int16(math.Sin(s.acc) * 32767.0 * s.Volume)
+		val := int16(math.Sin(s.acc) * 0x7fff * s.Volume)
 		for c := range s.Channels {
 			idx := 2 * (s.Channels*i + c)
 			binary.LittleEndian.PutUint16(buf[idx:], uint16(val))
