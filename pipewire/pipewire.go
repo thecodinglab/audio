@@ -51,6 +51,7 @@ func (s *Sink) Close() {
 
 func (s *Sink) run(name string) {
 	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	ctx := &context{freq: rand.Float64() * 440}
 	userdata := unsafe.Pointer(ctx)
