@@ -10,7 +10,7 @@ struct data {
   void *userdata;
 };
 
-void audio_sample(void *buf, size_t size, void *userdata);
+size_t audio_sample(void *buf, size_t size, void *userdata);
 
 static void on_process(void *userdata) {
   struct data *data = userdata;
@@ -30,11 +30,12 @@ static void on_process(void *userdata) {
   if (b->requested)
     n_frames = SPA_MIN(b->requested, n_frames);
 
-  audio_sample(dst, n_frames * data->channels, data->userdata);
+  size_t cap = n_frames * data->channels * sizeof(int16_t);
+  size_t read = audio_sample(dst, cap, data->userdata);
 
   buf->datas[0].chunk->offset = 0;
   buf->datas[0].chunk->stride = stride;
-  buf->datas[0].chunk->size = n_frames * stride;
+  buf->datas[0].chunk->size = read;
 
   pw_stream_queue_buffer(data->stream, b);
 }

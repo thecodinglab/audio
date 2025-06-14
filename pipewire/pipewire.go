@@ -9,49 +9,46 @@ package pipewire
 import "C"
 
 import (
-	"math"
+	"io"
 	"math/rand"
 	"runtime"
 	"sync"
 	"unsafe"
 )
 
-const (
-	twoPI = math.Pi + math.Pi
-	// sampleRate  = 44100
-	// numChannels = 2
-)
-
 type Config struct {
+	Name       string
 	SampleRate int
 	Channels   int
 }
 
 type Sink struct {
+	io.Reader
+
 	cfg Config
 
-	ctx   unsafe.Pointer
-	ready chan struct{}
-	wg    sync.WaitGroup
+	ctx unsafe.Pointer
+	wg  sync.WaitGroup
 }
 
-func New(name string, cfg Config) *Sink {
-	sink := &Sink{
-		cfg:   cfg,
-		ready: make(chan struct{}),
-	}
+func New(reader io.Reader, cfg Config) *Sink {
+	sink := &Sink{Reader: reader, cfg: cfg}
+
+	ready := make(chan struct{})
 
 	sink.wg.Add(1)
 	go func() {
 		defer sink.wg.Done()
-		sink.run(name)
+		sink.run(ready)
 	}()
+
+	<-ready
 
 	return sink
 }
 
-func (s *Sink) Ready() {
-	<-s.ready
+func (s *Sink) Config() Config {
+	return s.cfg
 }
 
 func (s *Sink) Close() {
@@ -59,20 +56,20 @@ func (s *Sink) Close() {
 	s.wg.Wait()
 }
 
-func (s *Sink) run(name string) {
+func (s *Sink) run(ready chan struct{}) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	ctx := &context{
-		cfg:  s.cfg,
-		freq: rand.Float64() * 440,
-	}
+	id := registerSink(s)
+	defer unregisterSink(id)
+
+	ctx := &context{s.cfg, id}
 	userdata := unsafe.Pointer(ctx)
 
-	s.ctx = C.audio_setup(C.CString(name), C.int(s.cfg.SampleRate), C.int(s.cfg.Channels), userdata)
+	s.ctx = C.audio_setup(C.CString(s.cfg.Name), C.int(s.cfg.SampleRate), C.int(s.cfg.Channels), userdata)
 	defer C.audio_close(s.ctx)
 
-	close(s.ready)
+	close(ready)
 
 	C.audio_run(s.ctx)
 }
@@ -81,29 +78,57 @@ func (s *Sink) quit() {
 	C.audio_quit(s.ctx)
 }
 
+var (
+	sinks = map[int64]*Sink{}
+	mutex sync.RWMutex
+)
+
+func getSink(id int64) *Sink {
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	return sinks[id]
+}
+
+func registerSink(sink *Sink) int64 {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	for {
+		id := rand.Int63()
+		if _, found := sinks[id]; !found {
+			sinks[id] = sink
+			return id
+		}
+	}
+}
+
+func unregisterSink(id int64) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	delete(sinks, id)
+}
+
 type context struct {
 	cfg  Config
-	freq float64
-	acc  float64
+	sink int64
 }
 
 //export audio_sample
-func audio_sample(buf *C.int16_t, size C.size_t, data unsafe.Pointer) {
-	dst := unsafe.Slice(buf, size)
-	userdata := (*context)(data)
+func audio_sample(buf unsafe.Pointer, size C.size_t, data unsafe.Pointer) C.size_t {
+	dst := unsafe.Slice((*byte)(buf), size)
+	ctx := (*context)(data)
 
-	frames := int(size) / userdata.cfg.Channels
-
-	for i := range frames {
-		userdata.acc += twoPI * userdata.freq / float64(userdata.cfg.SampleRate)
-		for userdata.acc > twoPI {
-			userdata.acc -= twoPI
-		}
-
-		val := int16(math.Sin(userdata.acc) * 0.03 * 32767.0)
-		for c := range userdata.cfg.Channels {
-			idx := userdata.cfg.Channels*i + c
-			dst[idx] = C.int16_t(val)
-		}
+	sink := getSink(ctx.sink)
+	if sink == nil {
+		return 0
 	}
+
+	n, err := sink.Read(dst)
+	if err != nil {
+		// TODO: log message?
+	}
+
+	return C.size_t(n)
 }
