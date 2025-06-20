@@ -5,6 +5,8 @@ import (
 	"math"
 )
 
+var _ Sampler = (*WaveSampler)(nil)
+
 type WaveSampler struct {
 	Frequency  int
 	SampleRate int
@@ -16,6 +18,13 @@ type WaveSampler struct {
 
 func NewWaveSampler() *WaveSampler {
 	return &WaveSampler{220, 44100, 1, 2, 0}
+}
+
+func (s *WaveSampler) Format() Format {
+	return Format{
+		SampleRate: s.SampleRate,
+		Channels:   s.Channels,
+	}
 }
 
 const (
@@ -35,7 +44,7 @@ func (s *WaveSampler) Read(buf []byte) (int, error) {
 
 		val := int16(math.Sin(s.acc) * 0x7fff * s.Volume)
 		for c := range s.Channels {
-			idx := 2 * (s.Channels*i + c)
+			idx := sizeInt16 * (s.Channels*i + c)
 			binary.LittleEndian.PutUint16(buf[idx:], uint16(val))
 			n += 2
 		}

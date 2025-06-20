@@ -9,37 +9,30 @@ package pipewire
 import "C"
 
 import (
-	"io"
 	"math/rand"
 	"runtime"
 	"sync"
 	"unsafe"
+
+	"github.com/thecodinglab/audio/pcm"
 )
 
-type Config struct {
-	Name       string
-	SampleRate int
-	Channels   int
-}
-
 type Sink struct {
-	io.Reader
-
-	cfg Config
+	sampler pcm.Sampler
 
 	ctx unsafe.Pointer
 	wg  sync.WaitGroup
 }
 
-func New(reader io.Reader, cfg Config) *Sink {
-	sink := &Sink{Reader: reader, cfg: cfg}
+func New(name string, sampler pcm.Sampler) *Sink {
+	sink := &Sink{sampler: sampler}
 
 	ready := make(chan struct{})
 
 	sink.wg.Add(1)
 	go func() {
 		defer sink.wg.Done()
-		sink.run(ready)
+		sink.run(name, ready)
 	}()
 
 	<-ready
@@ -47,26 +40,23 @@ func New(reader io.Reader, cfg Config) *Sink {
 	return sink
 }
 
-func (s *Sink) Config() Config {
-	return s.cfg
-}
-
 func (s *Sink) Close() {
 	s.quit()
 	s.wg.Wait()
 }
 
-func (s *Sink) run(ready chan struct{}) {
+func (s *Sink) run(name string, ready chan struct{}) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	id := registerSink(s)
 	defer unregisterSink(id)
 
-	ctx := &context{s.cfg, id}
+	ctx := &context{id}
 	userdata := unsafe.Pointer(ctx)
+	format := s.sampler.Format()
 
-	s.ctx = C.audio_setup(C.CString(s.cfg.Name), C.int(s.cfg.SampleRate), C.int(s.cfg.Channels), userdata)
+	s.ctx = C.audio_setup(C.CString(name), C.int(format.SampleRate), C.int(format.Channels), userdata)
 	defer C.audio_close(s.ctx)
 
 	close(ready)
@@ -111,7 +101,6 @@ func unregisterSink(id int64) {
 }
 
 type context struct {
-	cfg  Config
 	sink int64
 }
 
@@ -125,7 +114,7 @@ func audio_sample(buf unsafe.Pointer, size C.size_t, data unsafe.Pointer) C.size
 		return 0
 	}
 
-	n, err := sink.Read(dst)
+	n, err := sink.sampler.Read(dst)
 	if err != nil {
 		// TODO: log message?
 	}

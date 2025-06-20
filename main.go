@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/thecodinglab/audio/pcm"
-	"github.com/thecodinglab/audio/pipewire"
+	"github.com/thecodinglab/audio/sinks/pipewire"
 )
 
 func main() {
@@ -21,22 +21,16 @@ func main() {
 	go func() {
 		defer wg.Done()
 
-		cfg := pipewire.Config{
-			Name:       "ananas",
-			SampleRate: 44100,
-			Channels:   2,
-		}
-
 		delta, minFreq, maxFreq := 1, 200, 400
 
 		sampler := pcm.NewWaveSampler()
 		sampler.Frequency = minFreq
-		sampler.SampleRate = cfg.SampleRate
-		sampler.Channels = cfg.Channels
+		sampler.SampleRate = 44100
+		sampler.Channels = 2
 		sampler.Volume = 0.03
 
 		go func() {
-			for range time.Tick(10 * time.Millisecond) {
+			for range time.Tick(time.Millisecond) {
 				sampler.Frequency += delta
 
 				if sampler.Frequency <= minFreq {
@@ -51,7 +45,7 @@ func main() {
 			}
 		}()
 
-		sink := pipewire.New(sampler, cfg)
+		sink := pipewire.New("ananas", sampler)
 		defer sink.Close()
 		<-ctx.Done()
 	}()
@@ -60,20 +54,14 @@ func main() {
 	go func() {
 		defer wg.Done()
 
-		cfg := pipewire.Config{
-			Name:       "banane",
-			SampleRate: 44100 / 2,
-			Channels:   1,
-		}
-
 		sampler := pcm.NewWaveSampler()
-		sampler.SampleRate = cfg.SampleRate
-		sampler.Channels = cfg.Channels
+		sampler.SampleRate = 44100 / 2
+		sampler.Channels = 1
 		sampler.Volume = 0.03
 
-		unblocked := pcm.NewNonBlockingIOSampler(sampler)
+		unblocked := pcm.NewNonBlockingSampler(sampler)
 
-		sink := pipewire.New(unblocked, cfg)
+		sink := pipewire.New("banane", unblocked)
 		defer sink.Close()
 		<-ctx.Done()
 	}()
