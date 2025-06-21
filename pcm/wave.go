@@ -52,3 +52,24 @@ func (s *WaveSampler) Read(buf []byte) (int, error) {
 
 	return n, nil
 }
+
+func (s *WaveSampler) Sample(samples []int16) (int, error) {
+	n := 0
+	frames := len(samples) / s.Channels
+
+	for i := range frames {
+		s.acc += twoPI * float64(s.Frequency) / float64(s.SampleRate)
+		for s.acc > twoPI {
+			s.acc -= twoPI
+		}
+
+		val := int16(math.Sin(s.acc) * 0x7fff * s.Volume)
+		for c := range s.Channels {
+			idx := i*s.Channels + c
+			samples[idx] = val
+			n++
+		}
+	}
+
+	return n, nil
+}
