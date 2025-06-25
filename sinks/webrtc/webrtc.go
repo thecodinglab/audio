@@ -14,17 +14,17 @@ import (
 	"github.com/pion/webrtc/v4/pkg/media"
 	"gopkg.in/hraban/opus.v2"
 
-	"github.com/thecodinglab/audio/pcm"
+	"github.com/thecodinglab/audio/sampler"
 )
 
 type Server struct {
-	sampler pcm.Sampler
+	sampler sampler.Sampler
 
 	tracks map[int64]*webrtc.TrackLocalStaticSample
 	mutex  sync.RWMutex
 }
 
-func New(sampler pcm.Sampler) *Server {
+func New(sampler sampler.Sampler) *Server {
 	server := &Server{sampler, make(map[int64]*webrtc.TrackLocalStaticSample), sync.RWMutex{}}
 	go func() {
 		if err := server.transfer(); err != nil {

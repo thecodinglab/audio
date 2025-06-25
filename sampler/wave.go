@@ -1,13 +1,13 @@
-package pcm
+package sampler
 
 import (
 	"encoding/binary"
 	"math"
 )
 
-var _ Sampler = (*WaveSampler)(nil)
+var _ Sampler = (*Wave)(nil)
 
-type WaveSampler struct {
+type Wave struct {
 	Frequency  int
 	SampleRate int
 	Channels   int
@@ -16,11 +16,11 @@ type WaveSampler struct {
 	acc float64
 }
 
-func NewWaveSampler() *WaveSampler {
-	return &WaveSampler{220, 44100, 1, 2, 0}
+func NewWave() *Wave {
+	return &Wave{220, 44100, 1, 2, 0}
 }
 
-func (s *WaveSampler) Format() Format {
+func (s *Wave) Format() Format {
 	return Format{
 		SampleRate: s.SampleRate,
 		Channels:   s.Channels,
@@ -32,7 +32,7 @@ const (
 	sizeInt16 = 2
 )
 
-func (s *WaveSampler) Read(buf []byte) (int, error) {
+func (s *Wave) Read(buf []byte) (int, error) {
 	n := 0
 	frames := len(buf) / (sizeInt16 * s.Channels)
 
@@ -53,7 +53,7 @@ func (s *WaveSampler) Read(buf []byte) (int, error) {
 	return n, nil
 }
 
-func (s *WaveSampler) Sample(samples []int16) (int, error) {
+func (s *Wave) Sample(samples []int16) (int, error) {
 	n := 0
 	frames := len(samples) / s.Channels
 

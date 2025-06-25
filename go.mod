@@ -4,7 +4,6 @@ go 1.24.3
 
 require (
 	github.com/pion/webrtc/v4 v4.1.2
-	github.com/smallnest/ringbuffer v0.0.0-20250317021400-0da97b586904
 	gopkg.in/hraban/opus.v2 v2.0.0-20230925203106-0188a62cb302
 )
 

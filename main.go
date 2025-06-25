@@ -4,30 +4,30 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/thecodinglab/audio/pcm"
+	"github.com/thecodinglab/audio/sampler"
 	"github.com/thecodinglab/audio/sinks/webrtc"
 )
 
 func main() {
 	delta, minFreq, maxFreq := 1, 200, 400
 
-	sampler := pcm.NewWaveSampler()
-	sampler.Frequency = minFreq
-	sampler.SampleRate = 48000
-	sampler.Channels = 2
-	sampler.Volume = 0.2
+	s := sampler.NewWave()
+	s.Frequency = minFreq
+	s.SampleRate = 48000
+	s.Channels = 2
+	s.Volume = 0.2
 
 	go func() {
 		for range time.Tick(10 * time.Millisecond) {
-			sampler.Frequency += delta
+			s.Frequency += delta
 
-			if sampler.Frequency <= minFreq {
-				sampler.Frequency = minFreq
+			if s.Frequency <= minFreq {
+				s.Frequency = minFreq
 				delta = -delta
 			}
 
-			if sampler.Frequency >= maxFreq {
-				sampler.Frequency = maxFreq
+			if s.Frequency >= maxFreq {
+				s.Frequency = maxFreq
 				delta = -delta
 			}
 		}
@@ -53,7 +53,8 @@ func main() {
 	// 	fmt.Printf("%4d Hz: %6.4f\n", freq, v)
 	// }
 
-	server := webrtc.New(sampler)
+	buffer := sampler.NewBuffer(s)
+	server := webrtc.New(buffer)
 
 	mux := http.NewServeMux()
 	mux.Handle("/webrtc", server)
@@ -62,4 +63,13 @@ func main() {
 	if err := http.ListenAndServe("0.0.0.0:1234", mux); err != nil {
 		panic(err)
 	}
+}
+
+type test struct {
+	sampler.Sampler
+}
+
+func (t *test) Read(buf []byte) (int, error) {
+	time.Sleep(200 * time.Millisecond)
+	return t.Sampler.Read(buf)
 }

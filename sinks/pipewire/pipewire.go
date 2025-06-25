@@ -14,17 +14,17 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/thecodinglab/audio/pcm"
+	"github.com/thecodinglab/audio/sampler"
 )
 
 type Sink struct {
-	sampler pcm.Sampler
+	sampler sampler.Sampler
 
 	ctx unsafe.Pointer
 	wg  sync.WaitGroup
 }
 
-func New(name string, sampler pcm.Sampler) *Sink {
+func New(name string, sampler sampler.Sampler) *Sink {
 	sink := &Sink{sampler: sampler}
 
 	ready := make(chan struct{})
