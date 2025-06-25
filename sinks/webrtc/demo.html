@@ -8,42 +8,48 @@
   </head>
   <body>
     <script>
+    let conn = null;
+
     const el = document.createElement("audio");
     el.controls = true;
     el.volume = 0.1;
     document.body.appendChild(el);
 
-
     function connect() {
-      const pc = new RTCPeerConnection({
+      if (conn) {
+        conn.close();
+      }
+
+      conn = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
       });
 
-      pc.addEventListener("negotiationneeded", () => {
-        pc.createOffer().then((offer) => pc.setLocalDescription(offer));
+      conn.addEventListener("negotiationneeded", () => {
+        conn.createOffer().then((offer) => conn.setLocalDescription(offer));
       });
 
-      pc.addEventListener("icecandidate", (e) => {
+      conn.addEventListener("icecandidate", (e) => {
         if (!e.candidate) {
-          fetch("/webrtc", { method: "POST", body: JSON.stringify(pc.localDescription) })
+          fetch("/webrtc", { method: "POST", body: JSON.stringify(conn.localDescription) })
             .then((res) => res.json())
-            .then((answer) => pc.setRemoteDescription(answer));
+            .then((answer) => conn.setRemoteDescription(answer))
+            .catch(() => setTimeout(connect, 500));
         }
       });
 
-      pc.addEventListener("connectionstatechange", () => {
-        console.log(pc.connectionState); // TODO reconnect?
-        if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+      conn.addEventListener("connectionstatechange", () => {
+        console.log(conn.connectionState); // TODO reconnect?
+        if (conn.connectionState === "disconnected" || conn.connectionState === "failed") {
           connect();
         }
       });
 
-      pc.addEventListener("track", (event) => {
+      conn.addEventListener("track", (event) => {
         el.srcObject = event.streams[0];
         el.play();
       });
 
-      pc.addTransceiver("audio", {
+      conn.addTransceiver("audio", {
         direction: "recvonly",
       });
     }
