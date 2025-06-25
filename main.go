@@ -1,94 +1,65 @@
 package main
 
 import (
-	"fmt"
-	"math"
+	"net/http"
+	"time"
 
-	"github.com/thecodinglab/audio/fourier"
 	"github.com/thecodinglab/audio/pcm"
+	"github.com/thecodinglab/audio/sinks/webrtc"
 )
 
 func main() {
-	// ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	// defer cancel()
-	//
-	// wg := sync.WaitGroup{}
-	//
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	//
-	// 	delta, minFreq, maxFreq := 1, 200, 400
-	//
-	// 	sampler := pcm.NewWaveSampler()
-	// 	sampler.Frequency = minFreq
-	// 	sampler.SampleRate = 44100
-	// 	sampler.Channels = 2
-	// 	sampler.Volume = 0.03
-	//
-	// 	go func() {
-	// 		for range time.Tick(time.Millisecond) {
-	// 			sampler.Frequency += delta
-	//
-	// 			if sampler.Frequency <= minFreq {
-	// 				sampler.Frequency = minFreq
-	// 				delta = -delta
-	// 			}
-	//
-	// 			if sampler.Frequency >= maxFreq {
-	// 				sampler.Frequency = maxFreq
-	// 				delta = -delta
-	// 			}
-	// 		}
-	// 	}()
-	//
-	// 	sink := pipewire.New("ananas", sampler)
-	// 	defer sink.Close()
-	// 	<-ctx.Done()
-	// }()
-	//
-	// wg.Add(1)
-	// go func() {
-	// 	defer wg.Done()
-	//
-	// 	sampler := pcm.NewWaveSampler()
-	// 	sampler.SampleRate = 44100 / 2
-	// 	sampler.Channels = 1
-	// 	sampler.Volume = 0.03
-	//
-	// 	unblocked := pcm.NewNonBlockingSampler(sampler)
-	//
-	// 	sink := pipewire.New("banane", unblocked)
-	// 	defer sink.Close()
-	// 	<-ctx.Done()
-	// }()
-	//
-	// wg.Wait()
+	delta, minFreq, maxFreq := 1, 200, 400
 
 	sampler := pcm.NewWaveSampler()
-	sampler.SampleRate = 44100
-	sampler.Frequency = 220
-	sampler.Channels = 1
-	sampler.Volume = 1
+	sampler.Frequency = minFreq
+	sampler.SampleRate = 48000
+	sampler.Channels = 2
+	sampler.Volume = 0.2
 
-	window := 1 << 13
+	go func() {
+		for range time.Tick(10 * time.Millisecond) {
+			sampler.Frequency += delta
 
-	samples := make([]int16, window)
-	n, _ := sampler.Sample(samples)
+			if sampler.Frequency <= minFreq {
+				sampler.Frequency = minFreq
+				delta = -delta
+			}
 
-	x := make([]complex128, n)
-	for i := range n {
-		x[i] = complex(float64(samples[i])/float64(0x7fff), 0)
-	}
+			if sampler.Frequency >= maxFreq {
+				sampler.Frequency = maxFreq
+				delta = -delta
+			}
+		}
+	}()
 
-	f := make([]complex128, n)
-	fourier.DFT(x, f)
+	// window := 1 << 16
+	// samples := make([]int16, window)
+	// n, _ := sampler.Sample(samples)
+	//
+	// x := make([]complex128, n)
+	// for i := range n {
+	// 	x[i] = complex(float64(samples[i])/float64(0x7fff), 0)
+	// }
+	//
+	// f := make([]complex128, n)
+	// fourier.FFT(x, f)
+	//
+	// for key, value := range f {
+	// 	r, i := real(value), imag(value)
+	// 	v := math.Sqrt(r*r + i*i)
+	//
+	// 	freq := int(math.Round(float64(key) * float64(sampler.SampleRate) / float64(window)))
+	// 	fmt.Printf("%4d Hz: %6.4f\n", freq, v)
+	// }
 
-	for key, value := range f {
-		r, i := real(value), imag(value)
-		v := math.Sqrt(r*r + i*i)
+	server := webrtc.New(sampler)
 
-		freq := float64(key) * float64(sampler.SampleRate) / float64(window)
-		fmt.Printf("%4d Hz: %6.4f\n", int(freq), v)
+	mux := http.NewServeMux()
+	mux.Handle("/webrtc", server)
+	mux.Handle("/", http.FileServer(http.Dir("./sinks/webrtc")))
+
+	if err := http.ListenAndServe("0.0.0.0:1234", mux); err != nil {
+		panic(err)
 	}
 }
