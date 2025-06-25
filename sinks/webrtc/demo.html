@@ -1,60 +1,18 @@
 <!doctype html>
-<html lang="en">
+<html>
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WebRTC Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
   <body>
-    <script>
-    let conn = null;
+    <h1 class="text-3xl font-bold mb-6">WebRTC Demo</h1>
+    <button id="play">Play</button>
 
-    const el = document.createElement("audio");
-    el.controls = true;
-    el.volume = 0.1;
-    document.body.appendChild(el);
+    <canvas id="canvas" width="1000"></canvas>
 
-    function connect() {
-      if (conn) {
-        conn.close();
-      }
-
-      conn = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-      });
-
-      conn.addEventListener("negotiationneeded", () => {
-        conn.createOffer().then((offer) => conn.setLocalDescription(offer));
-      });
-
-      conn.addEventListener("icecandidate", (e) => {
-        if (!e.candidate) {
-          fetch("/webrtc", { method: "POST", body: JSON.stringify(conn.localDescription) })
-            .then((res) => res.json())
-            .then((answer) => conn.setRemoteDescription(answer))
-            .catch(() => setTimeout(connect, 500));
-        }
-      });
-
-      conn.addEventListener("connectionstatechange", () => {
-        console.log(conn.connectionState); // TODO reconnect?
-        if (conn.connectionState === "disconnected" || conn.connectionState === "failed") {
-          connect();
-        }
-      });
-
-      conn.addEventListener("track", (event) => {
-        el.srcObject = event.streams[0];
-        el.play();
-      });
-
-      conn.addTransceiver("audio", {
-        direction: "recvonly",
-      });
-    }
-
-    connect();
-    </script>
+    <script src="demo.js"></script>
   </body>
 </html>
+
