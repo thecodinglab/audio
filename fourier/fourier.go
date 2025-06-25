@@ -49,5 +49,5 @@ func radix2(in, out []complex128, n, stride int) {
 }
 
 func isPowerOfTwo(x int) bool {
-	return x&(x-1) == 0
+	return x != 0 && x&(x-1) == 0
 }
