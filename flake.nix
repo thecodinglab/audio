@@ -25,12 +25,17 @@
         in
         {
           default = pkgs.mkShell {
-            packages = [
-              pkgs.pkg-config
-              pkgs.pipewire
-
-              pkgs.gdb
-            ];
+            packages =
+              [
+                pkgs.pkg-config
+                pkgs.libopus
+                pkgs.libogg
+                pkgs.opusfile
+              ]
+              ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
+                pkgs.gdb
+                pkgs.pipewire
+              ];
           };
         }
       );
