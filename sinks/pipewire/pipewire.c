@@ -7,10 +7,10 @@ struct data {
 
   struct pw_main_loop *loop;
   struct pw_stream *stream;
-  void *userdata;
+  uint64_t userdata;
 };
 
-size_t audio_sample(void *buf, size_t size, void *userdata);
+size_t audio_sample(void *buf, size_t size, uint64_t userdata);
 
 static void on_process(void *userdata) {
   struct data *data = userdata;
@@ -46,7 +46,7 @@ static const struct pw_stream_events stream_events = {
 };
 
 struct data *audio_setup(const char *name, int sampleRate, int channels,
-                         void *userdata) {
+                         uint64_t userdata) {
   struct data *data = malloc(sizeof(struct data));
   data->sample_rate = sampleRate;
   data->channels = channels;
