@@ -6,11 +6,11 @@
     <title>WebRTC Demo</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
-  <body>
+  <body class="bg-black text-white w-screen h-screen flex items-center justify-center flex-col">
     <h1 class="text-3xl font-bold mb-6">WebRTC Demo</h1>
-    <button id="play">Play</button>
 
-    <canvas id="canvas" width="1000"></canvas>
+    <button id="play" class="border rounded-md px-2 py-1">Play</button>
+    <canvas id="canvas"></canvas>
 
     <script src="demo.js"></script>
   </body>

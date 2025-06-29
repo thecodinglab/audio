@@ -2,9 +2,20 @@
 let context = null;
 /** @type {RTCPeerConnection | null} */
 let conn = null;
+/** @type {MediaStreamAudioDestinationNode | null} */
+let source = null;
 
 /** @type {HTMLCanvasElement} */
 const canvas = document.querySelector("#canvas");
+
+const resize = () => {
+  canvas.width = document.body.clientWidth;
+  canvas.height = Math.min(document.body.clientHeight, 500);
+};
+
+resize();
+window.addEventListener("resize", () => resize());
+
 const canvasCtx = canvas.getContext("2d");
 
 function ensureAudioContext() {
@@ -22,6 +33,12 @@ function connect(destination) {
     conn.close();
   }
 
+  if (source) {
+    source.disconnect();
+    source = null;
+  }
+
+
   conn = new RTCPeerConnection({
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
   });
@@ -35,19 +52,19 @@ function connect(destination) {
       fetch("/webrtc", { method: "POST", body: JSON.stringify(conn.localDescription) })
         .then((res) => res.json())
         .then((answer) => conn.setRemoteDescription(answer))
-        .catch(() => setTimeout(connect, 500));
+        .catch(() => setTimeout(() => connect(destination), 500));
     }
   });
 
   conn.addEventListener("connectionstatechange", () => {
     console.log("[WebRTC] connection state:", conn.connectionState);
     if (conn.connectionState === "disconnected" || conn.connectionState === "failed") {
-      connect();
+      connect(destination);
     }
   });
 
   conn.addEventListener("track", (event) => {
-    const source = context.createMediaStreamSource(event.streams[0]);
+    source = context.createMediaStreamSource(event.streams[0]);
     source.connect(destination);
   });
 
@@ -59,37 +76,43 @@ function connect(destination) {
 function play() {
   ensureAudioContext();
 
+  const gain = context.createGain();
+  gain.gain.setValueAtTime(0.01, context.currentTime);
+  gain.connect(context.destination);
+
   const analyzer = context.createAnalyser();
-  analyzer.fftSize = 512;
+  analyzer.fftSize = 1 << 12;
   analyzer.minDecibels = -90;
   analyzer.maxDecibels = -10;
   analyzer.smoothingTimeConstant = 0.85;
-  // analyzer.connect(context.destination);
+  analyzer.connect(gain);
 
   connect(analyzer);
 
   const bufferLength = analyzer.frequencyBinCount;
-  const visualizeLength = bufferLength - 192; // TODO
+  const visualizeLength = bufferLength;
   const data = new Uint8Array(bufferLength);
-
-  const width = canvas.width;
-  const height = canvas.height;
-  canvasCtx.clearRect(0, 0, width, height);
 
   const draw = () => {
     requestAnimationFrame(draw);
 
     analyzer.getByteFrequencyData(data);
-    // console.log(data);
 
-    canvasCtx.fillStyle = "rgb(0, 0, 0)";
-    canvasCtx.fillRect(0, 0, width, height);
+    const stride = 1 << 4, pad = 4, power = 2;
 
-    const barWidth = width / visualizeLength - 4;
-    let x = 0;
+    const width = canvas.width;
+    const height = canvas.height;
+    canvasCtx.clearRect(0, 0, width, height);
 
-    for (let i = 0; i < visualizeLength; i++) {
-      const val = data[i] / 256.0 + 0.05;
+    let x = pad;
+    const barWidth = (width - 2 * pad) / (visualizeLength / stride) - pad;
+    for (let i = 0; i < visualizeLength; i += stride) {
+      let val = 0;
+      for (let j = 0; j < stride; j++) {
+        val += Math.pow(data[i + j] / 256.0, power);
+      }
+      val = val / stride + 0.01;
+
       const barHeight = 0.5 * height * val;
 
       canvasCtx.fillStyle = `rgb(${127 + val * 128},0,0)`;
@@ -98,7 +121,7 @@ function play() {
       canvasCtx.roundRect(x + 2, 0.5 * height - barHeight, barWidth, 2 * barHeight, barWidth / 2);
       canvasCtx.fill();
 
-      x += barWidth + 4;
+      x += barWidth + pad;
     }
   };
   draw();
