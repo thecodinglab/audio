@@ -1,7 +1,6 @@
 package sampler
 
 import (
-	"encoding/binary"
 	"math"
 )
 
@@ -31,27 +30,6 @@ const (
 	twoPI     = math.Pi + math.Pi
 	sizeInt16 = 2
 )
-
-func (s *Wave) Read(buf []byte) (int, error) {
-	n := 0
-	frames := len(buf) / (sizeInt16 * s.Channels)
-
-	for i := range frames {
-		s.acc += twoPI * float64(s.Frequency) / float64(s.SampleRate)
-		for s.acc > twoPI {
-			s.acc -= twoPI
-		}
-
-		val := int16(math.Sin(s.acc) * 0x7fff * s.Volume)
-		for c := range s.Channels {
-			idx := sizeInt16 * (s.Channels*i + c)
-			binary.LittleEndian.PutUint16(buf[idx:], uint16(val))
-			n += 2
-		}
-	}
-
-	return n, nil
-}
 
 func (s *Wave) Sample(samples []int16) (int, error) {
 	n := 0

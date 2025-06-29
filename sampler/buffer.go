@@ -11,7 +11,7 @@ var _ Sampler = (*Buffer)(nil)
 type Buffer struct {
 	delegate Sampler
 
-	buf   []byte
+	buf   []int16
 	full  bool
 	r, w  int
 	mutex sync.Mutex
@@ -22,7 +22,7 @@ func NewBuffer(delegate Sampler) *Buffer {
 	format := delegate.Format()
 	size := format.SampleRate * format.Channels // buffer 1 second
 
-	sampler := &Buffer{delegate, make([]byte, size), false, 0, 0, sync.Mutex{}, nil}
+	sampler := &Buffer{delegate, make([]int16, size), false, 0, 0, sync.Mutex{}, nil}
 	sampler.cond = sync.NewCond(&sampler.mutex)
 
 	go func() {
@@ -37,7 +37,7 @@ func (b *Buffer) Format() Format {
 	return b.delegate.Format()
 }
 
-func (b *Buffer) Read(buf []byte) (n int, err error) {
+func (b *Buffer) Sample(buf []int16) (n int, err error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -71,7 +71,7 @@ func (b *Buffer) CloseWithError(err error) {
 	// TODO
 }
 
-func (b *Buffer) read(buf []byte) (int, error) {
+func (b *Buffer) read(buf []int16) (int, error) {
 	if b.w == b.r && !b.full {
 		fmt.Println("EMPTY")
 		// io buffer is currently empty -> fill with zeros
@@ -108,7 +108,7 @@ func (b *Buffer) read(buf []byte) (int, error) {
 	return n, nil
 }
 
-func (b *Buffer) readFrom(reader io.Reader) (n int, err error) {
+func (b *Buffer) readFrom(sampler Sampler) (n int, err error) {
 	// zeroReads := 0
 
 	b.mutex.Lock()
@@ -125,7 +125,7 @@ func (b *Buffer) readFrom(reader io.Reader) (n int, err error) {
 			continue
 		}
 
-		var buf []byte
+		var buf []int16
 		if b.w >= b.r {
 			// write cursor is after the reader -> read until end of buffer
 			buf = b.buf[b.w:]
@@ -136,7 +136,7 @@ func (b *Buffer) readFrom(reader io.Reader) (n int, err error) {
 
 		// read from origin
 		b.mutex.Unlock()
-		nr, rerr := reader.Read(buf)
+		nr, rerr := sampler.Sample(buf)
 		b.mutex.Lock()
 
 		if rerr != nil && rerr != io.EOF {

@@ -64,12 +64,3 @@ func main() {
 		panic(err)
 	}
 }
-
-type test struct {
-	sampler.Sampler
-}
-
-func (t *test) Read(buf []byte) (int, error) {
-	time.Sleep(200 * time.Millisecond)
-	return t.Sampler.Read(buf)
-}

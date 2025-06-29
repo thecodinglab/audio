@@ -1,7 +1,6 @@
 package webrtc
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -159,13 +158,15 @@ func (s *Server) transfer() error {
 
 	for range ticker.C {
 		numSamples := int(frameTime * time.Duration(format.SampleRate) / time.Second)
+
 		pcm := make([]int16, numSamples*format.Channels)
-		if err := binary.Read(s.sampler, binary.LittleEndian, pcm); err != nil {
+		n, err := s.sampler.Sample(pcm)
+		if err != nil {
 			return err
 		}
 
 		buf := make([]byte, 2*len(pcm))
-		n, err := enc.Encode(pcm, buf)
+		n, err = enc.Encode(pcm[:n], buf)
 		if err != nil {
 			return err
 		}

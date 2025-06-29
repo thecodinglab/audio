@@ -9,6 +9,7 @@ package pipewire
 import "C"
 
 import (
+	"encoding/binary"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -114,7 +115,13 @@ func audio_sample(buf unsafe.Pointer, size C.size_t, data unsafe.Pointer) C.size
 		return 0
 	}
 
-	n, err := sink.sampler.Read(dst)
+	samples := make([]int16, size/2)
+	n, err := sink.sampler.Sample(samples)
+	if err != nil {
+		// TODO: log message?
+	}
+
+	n, err = binary.Encode(dst, binary.LittleEndian, samples[:n])
 	if err != nil {
 		// TODO: log message?
 	}
