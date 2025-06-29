@@ -2,15 +2,14 @@
 let context = null;
 /** @type {RTCPeerConnection | null} */
 let conn = null;
-/** @type {MediaStreamAudioDestinationNode | null} */
-let source = null;
 
 /** @type {HTMLCanvasElement} */
 const canvas = document.querySelector("#canvas");
 
 const resize = () => {
-  canvas.width = document.body.clientWidth;
-  canvas.height = Math.min(document.body.clientHeight, 500);
+  const size = Math.min(document.body.clientWidth, document.body.clientHeight, 300)
+  canvas.width = size;
+  canvas.height = size;
 };
 
 resize();
@@ -18,26 +17,23 @@ window.addEventListener("resize", () => resize());
 
 const canvasCtx = canvas.getContext("2d");
 
+/** @type {HTMLAudioElement} */
+const audio = document.querySelector("#audio");
+audio.volume = 0.005;
+
 function ensureAudioContext() {
   if (!context) {
     context = new AudioContext();
   }
   if (context.state === 'suspended') {
-    context.resume();
+    context.resume().catch(console.error);
   }
 }
 
-/** @param {AudioNode} destination */
-function connect(destination) {
+function connect() {
   if (conn) {
     conn.close();
   }
-
-  if (source) {
-    source.disconnect();
-    source = null;
-  }
-
 
   conn = new RTCPeerConnection({
     iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
@@ -52,25 +48,58 @@ function connect(destination) {
       fetch("/webrtc", { method: "POST", body: JSON.stringify(conn.localDescription) })
         .then((res) => res.json())
         .then((answer) => conn.setRemoteDescription(answer))
-        .catch(() => setTimeout(() => connect(destination), 500));
+        .catch(() => setTimeout(connect, 500));
     }
   });
 
   conn.addEventListener("connectionstatechange", () => {
     console.log("[WebRTC] connection state:", conn.connectionState);
     if (conn.connectionState === "disconnected" || conn.connectionState === "failed") {
-      connect(destination);
+      connect();
     }
   });
 
   conn.addEventListener("track", (event) => {
-    source = context.createMediaStreamSource(event.streams[0]);
-    source.connect(destination);
+    audio.srcObject = event.streams[0];
+    audio.play();
   });
 
   conn.addTransceiver("audio", {
     direction: "recvonly",
   });
+}
+
+/** 
+ * @param {number} val
+ * @param {number} idx
+ * @param {number} total
+ */
+function drawSection(val, idx, total) {
+  const radius = 0.375 * canvas.height;
+  const angle = Math.PI * (idx / total);
+  const hue = 360.0 * (idx / total);
+
+  const height = 2 * Math.PI * radius / total;
+  const width = radius * val;
+  const x = radius - width / 2;
+  const y = -0.5 * height;
+
+  canvasCtx.save()
+  canvasCtx.fillStyle = `hsl(${hue}, ${30 + val * 70}%, 50%)`;
+  canvasCtx.translate(canvas.width / 2, canvas.height / 2);
+  canvasCtx.rotate(-0.5 * Math.PI);
+
+  canvasCtx.rotate(angle);
+  canvasCtx.beginPath();
+  canvasCtx.roundRect(x, y, width, height, width / 2);
+  canvasCtx.fill();
+
+  canvasCtx.rotate(-2 * angle);
+  canvasCtx.beginPath();
+  canvasCtx.roundRect(x, y, width, height, width / 2);
+  canvasCtx.fill();
+
+  canvasCtx.restore();
 }
 
 function play() {
@@ -87,10 +116,13 @@ function play() {
   analyzer.smoothingTimeConstant = 0.85;
   analyzer.connect(gain);
 
-  connect(analyzer);
+  const source = context.createMediaElementSource(audio);
+  source.connect(analyzer);
+
+  connect();
 
   const bufferLength = analyzer.frequencyBinCount;
-  const visualizeLength = bufferLength;
+  const visualizeLength = bufferLength / 1.5;
   const data = new Uint8Array(bufferLength);
 
   const draw = () => {
@@ -98,14 +130,9 @@ function play() {
 
     analyzer.getByteFrequencyData(data);
 
-    const stride = 1 << 4, pad = 4, power = 2;
+    const stride = 1 << 5, power = 1;
+    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const width = canvas.width;
-    const height = canvas.height;
-    canvasCtx.clearRect(0, 0, width, height);
-
-    let x = pad;
-    const barWidth = (width - 2 * pad) / (visualizeLength / stride) - pad;
     for (let i = 0; i < visualizeLength; i += stride) {
       let val = 0;
       for (let j = 0; j < stride; j++) {
@@ -113,18 +140,10 @@ function play() {
       }
       val = val / stride + 0.01;
 
-      const barHeight = 0.5 * height * val;
-
-      canvasCtx.fillStyle = `rgb(${127 + val * 128},0,0)`;
-
-      canvasCtx.beginPath();
-      canvasCtx.roundRect(x + 2, 0.5 * height - barHeight, barWidth, 2 * barHeight, barWidth / 2);
-      canvasCtx.fill();
-
-      x += barWidth + pad;
+      drawSection(val, i / stride, visualizeLength / stride);
     }
   };
   draw();
 }
 
-document.querySelector("#play").addEventListener("click", play);
+play();
