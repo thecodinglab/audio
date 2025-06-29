@@ -4,9 +4,9 @@ import (
 	"math"
 )
 
-var _ Sampler = (*Wave)(nil)
+var _ Sampler = (*Oscillator)(nil)
 
-type Wave struct {
+type Oscillator struct {
 	Frequency  int
 	SampleRate int
 	Channels   int
@@ -15,11 +15,11 @@ type Wave struct {
 	acc float64
 }
 
-func NewWave() *Wave {
-	return &Wave{220, 44100, 1, 2, 0}
+func NewOscillator() *Oscillator {
+	return &Oscillator{220, 44100, 1, 2, 0}
 }
 
-func (s *Wave) Format() Format {
+func (s *Oscillator) Format() Format {
 	return Format{
 		SampleRate: s.SampleRate,
 		Channels:   s.Channels,
@@ -31,7 +31,7 @@ const (
 	sizeInt16 = 2
 )
 
-func (s *Wave) Sample(samples []int16) (int, error) {
+func (s *Oscillator) Sample(samples []int16) (int, error) {
 	n := 0
 	frames := len(samples) / s.Channels
 

@@ -1,7 +1,6 @@
 package sampler
 
 import (
-	"fmt"
 	"io"
 	"sync"
 )
@@ -73,7 +72,6 @@ func (b *Buffer) CloseWithError(err error) {
 
 func (b *Buffer) read(buf []int16) (int, error) {
 	if b.w == b.r && !b.full {
-		fmt.Println("EMPTY")
 		// io buffer is currently empty -> fill with zeros
 		// TODO instead of filling with zeros, we use the previous values, otherwise there will be artifects
 		for i := range buf {
